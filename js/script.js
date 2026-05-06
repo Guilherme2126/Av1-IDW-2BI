@@ -11,7 +11,8 @@
 const CONFIG = {
     API_BASE_URL: 'https://pokeapi.co/api/v2',
     POKEMON_PER_PAGE: 12,
-    MAX_POKEMON: 1025, // Todos os pokémons disponíveis
+    MAX_POKEMON: 251, // Primeiras gerações para performance
+    BATCH_SIZE: 20, // Requisições em lotes
 };
 
 // ==========================================
@@ -136,10 +137,15 @@ async function fetchPokemonList() {
 
         const data = await response.json();
         
-        // Busca detalhes de cada pokémon para obter a imagem
-        const pokemonDetails = await Promise.all(
-            data.results.map(pokemon => fetchPokemonDetails(pokemon.name))
-        );
+        // Busca detalhes em lotes para evitar timeout
+        const pokemonDetails = [];
+        for (let i = 0; i < data.results.length; i += CONFIG.BATCH_SIZE) {
+            const batch = data.results.slice(i, i + CONFIG.BATCH_SIZE);
+            const batchDetails = await Promise.all(
+                batch.map(pokemon => fetchPokemonDetails(pokemon.name))
+            );
+            pokemonDetails.push(...batchDetails.filter(p => p !== null));
+        }
 
         appState.pokemonList = pokemonDetails;
         appState.filteredList = [...pokemonDetails];
@@ -161,7 +167,7 @@ async function fetchPokemonList() {
  * Busca detalhes de um pokémon específico
  * @async
  * @param {string} nameOrId - Nome ou ID do pokémon
- * @returns {Promise<Object>} Objeto com dados do pokémon
+ * @returns {Promise<Object|null>} Objeto com dados do pokémon ou null em caso de erro
  */
 async function fetchPokemonDetails(nameOrId) {
     try {
@@ -170,15 +176,21 @@ async function fetchPokemonDetails(nameOrId) {
         );
 
         if (!response.ok) {
-            throw new Error(`Pokémon não encontrado: ${nameOrId}`);
+            return null;
         }
 
         const data = await response.json();
+        
+        // Tenta obter a imagem em diferentes formatos
+        const image = data.sprites.other?.['official-artwork']?.front_default || 
+                     data.sprites.front_default || 
+                     data.sprites.other?.dream_world?.front_default ||
+                     'https://via.placeholder.com/150?text=Sem+Imagem';
 
         return {
             id: data.id,
             name: data.name,
-            image: data.sprites.other['official-artwork'].front_default || data.sprites.front_default,
+            image: image,
             types: data.types.map(type => type.type.name),
             stats: data.stats,
             abilities: data.abilities,
@@ -189,7 +201,7 @@ async function fetchPokemonDetails(nameOrId) {
 
     } catch (error) {
         console.error(`Erro ao buscar detalhes do pokémon ${nameOrId}:`, error);
-        throw error;
+        return null;
     }
 }
 
@@ -434,5 +446,6 @@ elements.typeFilter.addEventListener('change', (e) => {
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM carregado. Iniciando carregamento de pokémons...');
     fetchPokemonList();
 });
