@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokédex - Listagem de Pokémons</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Estilos Customizados -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark bg-dark mb-5">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="Pikachu" height="40">
+                Pokédex
+            </span>
+        </div>
+    </nav>
+
+    <!-- Container Principal -->
+    <div class="container">
+        <!-- Seção de Busca -->
+        <div class="row mb-4">
+            <div class="col-md-10 mx-auto">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div class="input-group search-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.02.062.038.098.056l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.056-.098zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                                </svg>
+                            </span>
+                            <input 
+                                type="text" 
+                                class="form-control border-start-0" 
+                                id="searchInput" 
+                                placeholder="Buscar por nome ou ID..."
+                                aria-label="Buscar pokémon"
+                                autocomplete="off"
+                            >
+                            <button class="btn btn-outline-secondary" type="button" id="clearBtn" title="Limpar busca" style="display: none;">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select filter-select" id="typeFilter">
+                            <option value="">Todos os tipos</option>
+                            <!-- Opções serão adicionadas dinamicamente -->
+                        </select>
+                    </div>
+                </div>
+                <small class="text-muted d-block mt-2">Pesquisa instantânea - Digite para filtrar</small>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingSpinner" class="text-center mb-4 d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-2 text-muted">Carregando pokémons...</p>
+        </div>
+
+        <!-- Mensagem de Erro -->
+        <div id="errorMessage" class="alert alert-danger d-none alert-dismissible fade show" role="alert">
+            <strong>Erro!</strong>
+            <span id="errorText"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <!-- Mensagem de Sucesso/Info -->
+        <div id="infoMessage" class="alert alert-info d-none alert-dismissible fade show" role="alert">
+            <span id="infoText"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <!-- Grid de Pokémons -->
+        <div id="pokemonContainer" class="row g-4">
+            <!-- Cards serão inseridos aqui dinamicamente -->
+        </div>
+
+        <!-- Paginação -->
+        <nav aria-label="Paginação" class="mt-5 mb-5">
+            <ul class="pagination justify-content-center">
+                <li class="page-item" id="prevPage">
+                    <a class="page-link" href="#" tabindex="-1">Anterior</a>
+                </li>
+                <li class="page-item active" id="currentPageItem">
+                    <span class="page-link">1</span>
+                </li>
+                <li class="page-item" id="nextPage">
+                    <a class="page-link" href="#">Próximo</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Script Principal -->
+    <script src="js/script.js"></script>
+</body>
+</html>
