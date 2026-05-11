@@ -1,1 +1,272 @@
-/** * Pok+®dex - Script de Detalhes * Respons+ível pela exibi+º+úo detalhada de um pok+®mon * API: PokeAPI (https://pokeapi.co/) */// ==========================================// CONFIGURA+ç+òES E CONSTANTES// ==========================================const CONFIG = {    API_BASE_URL: 'https://pokeapi.co/api/v2',    MAX_MOVES_DISPLAY: 10,    MAX_POKEMON: 1025, // Todos os pok+®mons dispon+¡veis};// ==========================================// ESTADO DA APLICA+ç+âO// ==========================================let appState = {    currentPokemonId: null,    currentPokemonData: null,    isLoading: true,};// ==========================================// SELETORES DO DOM// ==========================================const elements = {    loadingSpinner: document.getElementById('loadingSpinner'),    errorMessage: document.getElementById('errorMessage'),    errorText: document.getElementById('errorText'),    detailsContainer: document.getElementById('detailsContainer'),    pokemonImage: document.getElementById('pokemonImage'),    pokemonName: document.getElementById('pokemonName'),    pokemonTypes: document.getElementById('pokemonTypes'),    pokemonId: document.getElementById('pokemonId'),    statsContainer: document.getElementById('statsContainer'),    abilitiesContainer: document.getElementById('abilitiesContainer'),    movesContainer: document.getElementById('movesContainer'),    prevPokemonBtn: document.getElementById('prevPokemon'),    nextPokemonBtn: document.getElementById('nextPokemon'),};// ==========================================// FUN+ç+òES UTILIT+üRIAS// ==========================================/** * Oculta o spinner de carregamento */function hideLoading() {    elements.loadingSpinner.classList.add('d-none');    appState.isLoading = false;}/** * Exibe mensagem de erro * @param {string} message - Mensagem de erro */function showError(message) {    elements.errorText.textContent = message;    elements.errorMessage.classList.remove('d-none');    elements.detailsContainer.classList.add('d-none');    hideLoading();}/** * Capitaliza a primeira letra de uma string * @param {string} str - String a ser capitalizada * @returns {string} String capitalizada */function capitalize(str) {    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();}/** * Obt+®m o par+ómetro de URL * @param {string} param - Nome do par+ómetro * @returns {string|null} Valor do par+ómetro */function getUrlParameter(param) {    const searchParams = new URLSearchParams(window.location.search);    return searchParams.get(param);}/** * Atualiza URL sem recarregar a p+ígina * @param {number} pokemonId - ID do pok+®mon */function updateUrl(pokemonId) {    window.history.pushState({ pokemonId }, '', `detalhes.html?id=${pokemonId}`);}// ==========================================// FUN+ç+òES DE API// ==========================================/** * Busca detalhes de um pok+®mon * @async * @param {number} pokemonId - ID do pok+®mon * @returns {Promise<Object>} Objeto com dados do pok+®mon */async function fetchPokemonDetails(pokemonId) {    try {        // Valida+º+úo do ID        if (pokemonId < 1 || pokemonId > CONFIG.MAX_POKEMON) {            throw new Error(`ID de pok+®mon inv+ílido: ${pokemonId}`);        }        const response = await fetch(            `${CONFIG.API_BASE_URL}/pokemon/${pokemonId}`        );        if (!response.ok) {            throw new Error(`Pok+®mon n+úo encontrado (ID: ${pokemonId})`);        }        const data = await response.json();        return data;    } catch (error) {        console.error('Erro ao buscar detalhes:', error);        throw error;    }}/** * Busca descri+º+úo de uma habilidade * @async * @param {string} abilityName - Nome da habilidade * @returns {Promise<string>} Descri+º+úo da habilidade */async function fetchAbilityDescription(abilityName) {    try {        const response = await fetch(            `${CONFIG.API_BASE_URL}/ability/${abilityName}`        );        if (!response.ok) {            return 'Descri+º+úo n+úo dispon+¡vel';        }        const data = await response.json();                // Encontra descri+º+úo em portugu+¬s, ou ingl+¬s como fallback        const flavorText = data.flavor_text_entries.find(entry =>             entry.language.name === 'pt-br' || entry.language.name === 'en'        );        return flavorText             ? flavorText.flavor_text.replace(/\n/g, ' ').trim()            : 'Descri+º+úo n+úo dispon+¡vel';    } catch (error) {        console.error(`Erro ao buscar habilidade ${abilityName}:`, error);        return 'Descri+º+úo n+úo dispon+¡vel';    }}// ==========================================// FUN+ç+òES DE RENDERIZA+ç+âO// ==========================================/** * Renderiza informa+º+Áes b+ísicas do pok+®mon * @param {Object} pokemon - Dados do pok+®mon */function renderBasicInfo(pokemon) {    // Imagem    const imageUrl = pokemon.sprites.other['official-artwork'].front_default         || pokemon.sprites.front_default        || 'https://via.placeholder.com/300';        elements.pokemonImage.src = imageUrl;    elements.pokemonImage.alt = pokemon.name;    // Nome    elements.pokemonName.textContent = capitalize(pokemon.name);    // Tipos    const typeBadges = pokemon.types        .map(type => `<span class="type-badge type-${type.type.name}">${capitalize(type.type.name)}</span>`)        .join('');    elements.pokemonTypes.innerHTML = typeBadges;    // ID    elements.pokemonId.textContent = `ID: #${pokemon.id.toString().padStart(3, '0')} | Altura: ${(pokemon.height / 10).toFixed(1)}m | Peso: ${(pokemon.weight / 10).toFixed(1)}kg`;}/** * Renderiza os stats do pok+®mon * @param {Array} stats - Array de stats */function renderStats(stats) {    let html = '';    stats.forEach(stat => {        const statName = stat.stat.name.replace('-', ' ');        const statValue = stat.base_stat;        const percentage = (statValue / 150) * 100; // Calcula percentual baseado em 150 como m+íximo        html += `            <div class="stat-item">                <div class="stat-name">${capitalize(statName)}</div>                <div class="progress">                    <div class="progress-bar" role="progressbar" style="width: ${percentage}%" aria-valuenow="${statValue}" aria-valuemin="0" aria-valuemax="150">                        ${statValue}                    </div>                </div>            </div>        `;    });    elements.statsContainer.innerHTML = html;}/** * Renderiza as habilidades do pok+®mon * @async * @param {Array} abilities - Array de habilidades */async function renderAbilities(abilities) {    let html = '';    for (const ability of abilities) {        const abilityName = ability.ability.name;        const isHidden = ability.is_hidden ? ' (Oculta)' : '';        const description = await fetchAbilityDescription(abilityName);        html += `            <div class="ability-item">                <div class="ability-name">${capitalize(abilityName)}${isHidden}</div>                <div class="ability-description">${description}</div>            </div>        `;    }    elements.abilitiesContainer.innerHTML = html || '<p>Sem habilidades dispon+¡veis</p>';}/** * Renderiza os movimentos do pok+®mon * @param {Array} moves - Array de movimentos */function renderMoves(moves) {    // Limita a 10 primeiros movimentos    const limitedMoves = moves.slice(0, CONFIG.MAX_MOVES_DISPLAY);        const moveNames = limitedMoves        .map(move => `<span class="move-badge">${capitalize(move.move.name)}</span>`)        .join('');    const info = moves.length > CONFIG.MAX_MOVES_DISPLAY         ? `<p class="text-muted mt-3">Mostrando ${CONFIG.MAX_MOVES_DISPLAY} de ${moves.length} movimentos</p>`        : '';    elements.movesContainer.innerHTML = `        <div class="moves-list">            ${moveNames}        </div>        ${info}    `;}/** * Carrega e exibe detalhes do pok+®mon * @async * @param {number} pokemonId - ID do pok+®mon */async function loadPokemonDetails(pokemonId) {    try {        // Atualiza URL        updateUrl(pokemonId);        appState.currentPokemonId = pokemonId;        // Busca dados        const pokemon = await fetchPokemonDetails(pokemonId);        appState.currentPokemonData = pokemon;        // Renderiza informa+º+Áes b+ísicas        renderBasicInfo(pokemon);        renderStats(pokemon.stats);        renderMoves(pokemon.moves);        // Renderiza habilidades de forma ass+¡ncrona        await renderAbilities(pokemon.abilities);        // Mostra container de detalhes        elements.detailsContainer.classList.remove('d-none');        hideLoading();        // Atualiza buttons de navega+º+úo        updateNavigationButtons();    } catch (error) {        console.error('Erro ao carregar detalhes:', error);        showError(`N+úo foi poss+¡vel carregar o pok+®mon. ${error.message}`);    }}/** * Atualiza o estado dos bot+Áes de navega+º+úo */function updateNavigationButtons() {    // Desabilita bot+úo anterior se est+í no primeiro pok+®mon    if (appState.currentPokemonId <= 1) {        elements.prevPokemonBtn.disabled = true;        elements.prevPokemonBtn.classList.add('disabled');    } else {        elements.prevPokemonBtn.disabled = false;        elements.prevPokemonBtn.classList.remove('disabled');    }    // Desabilita bot+úo pr+¦ximo se est+í no +¦ltimo pok+®mon    if (appState.currentPokemonId >= CONFIG.MAX_POKEMON) {        elements.nextPokemonBtn.disabled = true;        elements.nextPokemonBtn.classList.add('disabled');    } else {        elements.nextPokemonBtn.disabled = false;        elements.nextPokemonBtn.classList.remove('disabled');    }}// ==========================================// EVENT LISTENERS// ==========================================// Bot+úo Pok+®mon Anteriorelements.prevPokemonBtn.addEventListener('click', () => {    if (appState.currentPokemonId > 1) {        loadPokemonDetails(appState.currentPokemonId - 1);        window.scrollTo({ top: 0, behavior: 'smooth' });    }});// Bot+úo Pr+¦ximo Pok+®monelements.nextPokemonBtn.addEventListener('click', () => {    if (appState.currentPokemonId < CONFIG.MAX_POKEMON) {        loadPokemonDetails(appState.currentPokemonId + 1);        window.scrollTo({ top: 0, behavior: 'smooth' });    }});// Navega+º+úo pelo hist+¦rico do navegadorwindow.addEventListener('popstate', (e) => {    if (e.state && e.state.pokemonId) {        loadPokemonDetails(e.state.pokemonId);    }});// ==========================================// INICIALIZA+ç+âO// ==========================================document.addEventListener('DOMContentLoaded', () => {    // Obt+®m ID da URL    const pokemonId = getUrlParameter('id');    if (!pokemonId || isNaN(pokemonId)) {        showError('ID de pok+®mon inv+ílido. <a href="index.html">Voltar +á listagem</a>');        return;    }    loadPokemonDetails(parseInt(pokemonId));});
+/**
+ * Pokédex - Script de Detalhes
+ * Responsável pela exibição detalhada de um pokémon
+ * API: PokeAPI (https://pokeapi.co/)
+ */
+
+// ==========================================
+// CONFIGURAÇÕES E CONSTANTES
+// ==========================================
+const CONFIG = {
+    API_BASE_URL: 'https://pokeapi.co/api/v2',
+    MAX_MOVES_DISPLAY: 10,
+    MAX_POKEMON: 1025,
+};
+
+// ==========================================
+// ESTADO DA APLICAÇÃO
+// ==========================================
+let appState = {
+    currentPokemonId: null,
+    currentPokemonData: null,
+    isLoading: true,
+};
+
+// ==========================================
+// SELETORES DO DOM
+// ==========================================
+const elements = {
+    loadingSpinner: document.getElementById('loadingSpinner'),
+    errorMessage: document.getElementById('errorMessage'),
+    errorText: document.getElementById('errorText'),
+    detailsContainer: document.getElementById('detailsContainer'),
+    pokemonImage: document.getElementById('pokemonImage'),
+    pokemonName: document.getElementById('pokemonName'),
+    pokemonTypes: document.getElementById('pokemonTypes'),
+    pokemonId: document.getElementById('pokemonId'),
+    statsContainer: document.getElementById('statsContainer'),
+    abilitiesContainer: document.getElementById('abilitiesContainer'),
+    movesContainer: document.getElementById('movesContainer'),
+    prevPokemonBtn: document.getElementById('prevPokemon'),
+    nextPokemonBtn: document.getElementById('nextPokemon'),
+};
+
+// ==========================================
+// FUNÇÕES UTILITÁRIAS
+// ==========================================
+
+function hideLoading() {
+    elements.loadingSpinner.classList.add('d-none');
+    appState.isLoading = false;
+}
+
+function showError(message) {
+    elements.errorText.textContent = message;
+    elements.errorMessage.classList.remove('d-none');
+    elements.detailsContainer.classList.add('d-none');
+    hideLoading();
+}
+
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function getUrlParameter(param) {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get(param);
+}
+
+function updateUrl(pokemonId) {
+    window.history.pushState({ pokemonId }, '', `detalhes.html?id=${pokemonId}`);
+}
+
+// ==========================================
+// FUNÇÕES DE API
+// ==========================================
+
+async function fetchPokemonDetails(pokemonId) {
+    if (pokemonId < 1 || pokemonId > CONFIG.MAX_POKEMON) {
+        throw new Error(`ID de pokémon inválido: ${pokemonId}`);
+    }
+
+    const response = await fetch(`${CONFIG.API_BASE_URL}/pokemon/${pokemonId}`);
+
+    if (!response.ok) {
+        throw new Error(`Pokémon não encontrado (ID: ${pokemonId})`);
+    }
+
+    return response.json();
+}
+
+async function fetchAbilityDescription(abilityName) {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/ability/${abilityName}`);
+
+        if (!response.ok) {
+            return 'Descrição não disponível';
+        }
+
+        const data = await response.json();
+        const flavorText = data.flavor_text_entries.find(
+            (entry) => entry.language.name === 'pt-br' || entry.language.name === 'en'
+        );
+
+        return flavorText
+            ? flavorText.flavor_text.replace(/\n/g, ' ').trim()
+            : 'Descrição não disponível';
+    } catch (error) {
+        console.error(`Erro ao buscar habilidade ${abilityName}:`, error);
+        return 'Descrição não disponível';
+    }
+}
+
+// ==========================================
+// FUNÇÕES DE RENDERIZAÇÃO
+// ==========================================
+
+function renderBasicInfo(pokemon) {
+    const imageUrl =
+        pokemon.sprites.other['official-artwork'].front_default ||
+        pokemon.sprites.front_default ||
+        'https://via.placeholder.com/300';
+
+    elements.pokemonImage.src = imageUrl;
+    elements.pokemonImage.alt = pokemon.name;
+    elements.pokemonName.textContent = capitalize(pokemon.name);
+
+    const typeBadges = pokemon.types
+        .map(
+            (type) =>
+                `<span class="type-badge type-${type.type.name}">${capitalize(
+                    type.type.name
+                )}</span>`
+        )
+        .join('');
+
+    elements.pokemonTypes.innerHTML = typeBadges;
+    elements.pokemonId.textContent = `ID: #${pokemon.id
+        .toString()
+        .padStart(3, '0')} | Altura: ${(pokemon.height / 10).toFixed(1)}m | Peso: ${(pokemon.weight / 10).toFixed(1)}kg`;
+}
+
+function renderStats(stats) {
+    const html = stats
+        .map((stat) => {
+            const statName = capitalize(stat.stat.name.replace('-', ' '));
+            const statValue = stat.base_stat;
+            const percentage = Math.min(100, (statValue / 150) * 100);
+
+            return `
+                <div class="stat-item">
+                    <div class="stat-name">${statName}</div>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: ${percentage}%" aria-valuenow="${statValue}" aria-valuemin="0" aria-valuemax="150">
+                            ${statValue}
+                        </div>
+                    </div>
+                </div>
+            `;
+        })
+        .join('');
+
+    elements.statsContainer.innerHTML = html;
+}
+
+async function renderAbilities(abilities) {
+    const html = [];
+
+    for (const ability of abilities) {
+        const abilityName = ability.ability.name;
+        const isHidden = ability.is_hidden ? ' (Oculta)' : '';
+        const description = await fetchAbilityDescription(abilityName);
+
+        html.push(`
+            <div class="ability-item">
+                <div class="ability-name">${capitalize(abilityName)}${isHidden}</div>
+                <div class="ability-description">${description}</div>
+            </div>
+        `);
+    }
+
+    elements.abilitiesContainer.innerHTML = html.join('') || '<p>Sem habilidades disponíveis</p>';
+}
+
+function renderMoves(moves) {
+    const limitedMoves = moves.slice(0, CONFIG.MAX_MOVES_DISPLAY);
+
+    const moveBadges = limitedMoves
+        .map(
+            (move) =>
+                `<span class="move-badge">${capitalize(move.move.name)}</span>`
+        )
+        .join('');
+
+    const info = moves.length > CONFIG.MAX_MOVES_DISPLAY
+        ? `<p class="text-muted mt-3">Mostrando ${CONFIG.MAX_MOVES_DISPLAY} de ${moves.length} movimentos</p>`
+        : '';
+
+    elements.movesContainer.innerHTML = `
+        <div class="moves-list">
+            ${moveBadges}
+        </div>
+        ${info}
+    `;
+}
+
+async function loadPokemonDetails(pokemonId) {
+    try {
+        updateUrl(pokemonId);
+        appState.currentPokemonId = pokemonId;
+
+        const pokemon = await fetchPokemonDetails(pokemonId);
+        appState.currentPokemonData = pokemon;
+
+        renderBasicInfo(pokemon);
+        renderStats(pokemon.stats);
+        renderMoves(pokemon.moves);
+        await renderAbilities(pokemon.abilities);
+
+        elements.detailsContainer.classList.remove('d-none');
+        hideLoading();
+        updateNavigationButtons();
+    } catch (error) {
+        console.error('Erro ao carregar detalhes:', error);
+        showError(`Não foi possível carregar o pokémon. ${error.message}`);
+    }
+}
+
+function updateNavigationButtons() {
+    elements.prevPokemonBtn.disabled = appState.currentPokemonId <= 1;
+    elements.prevPokemonBtn.classList.toggle('disabled', appState.currentPokemonId <= 1);
+
+    elements.nextPokemonBtn.disabled = appState.currentPokemonId >= CONFIG.MAX_POKEMON;
+    elements.nextPokemonBtn.classList.toggle('disabled', appState.currentPokemonId >= CONFIG.MAX_POKEMON);
+}
+
+// ==========================================
+// EVENT LISTENERS
+// ==========================================
+
+elements.prevPokemonBtn.addEventListener('click', () => {
+    if (appState.currentPokemonId > 1) {
+        loadPokemonDetails(appState.currentPokemonId - 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+});
+
+elements.nextPokemonBtn.addEventListener('click', () => {
+    if (appState.currentPokemonId < CONFIG.MAX_POKEMON) {
+        loadPokemonDetails(appState.currentPokemonId + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+});
+
+window.addEventListener('popstate', (event) => {
+    if (event.state && event.state.pokemonId) {
+        loadPokemonDetails(event.state.pokemonId);
+    }
+});
+
+// ==========================================
+// INICIALIZAÇÃO
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const pokemonId = getUrlParameter('id');
+
+    if (!pokemonId || isNaN(pokemonId)) {
+        showError('ID de pokémon inválido. <a href="index.html">Voltar à listagem</a>');
+        return;
+    }
+
+    loadPokemonDetails(parseInt(pokemonId, 10));
+});

@@ -1,4 +1,4 @@
-@ -0,0 +1,409 @@
+-0,0 +1,409 
 /**
  * Pokédex - Script Principal
  * Responsável pela listagem de pokémons
