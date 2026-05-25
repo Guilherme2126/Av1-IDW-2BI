@@ -10,8 +10,8 @@
 
 const CONFIG = {
     API_BASE_URL: 'https://pokeapi.co/api/v2',
-    POKEMON_PER_PAGE: 12,
-    MAX_POKEMON: 251, // Primeiras gerações para performance
+    POKEMON_PER_PAGE: 30, // Pokémons por página
+    MAX_POKEMON: 1028, // Primeiras gerações para performance
     BATCH_SIZE: 20, // Requisições em lotes
 };
 
