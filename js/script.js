@@ -26,6 +26,7 @@ let appState = {
     isLoading: false,
     searchQuery: '',
     selectedType: '',
+    showFavoritesOnly: false,
 };
 
 // ==========================================
@@ -45,10 +46,71 @@ const elements = {
     prevPageBtn: document.getElementById('prevPage'),
     nextPageBtn: document.getElementById('nextPage'),
     currentPageItem: document.getElementById('currentPageItem'),
+    favoritesBtn: null, // Será criado dinamicamente
 };
 
 // Debounce para a busca
 let searchTimeout;
+
+// ==========================================
+// FUNÇÕES DE FAVORITOS
+// ==========================================
+
+/**
+ * Obtém a lista de favoritos do localStorage
+ * @returns {Array} Array com IDs dos pokémons favoritos
+ */
+function getFavorites() {
+    const favorites = localStorage.getItem('pokemonFavorites');
+    return favorites ? JSON.parse(favorites) : [];
+}
+
+/**
+ * Salva um pokémon como favorito
+ * @param {number} pokemonId - ID do pokémon
+ */
+function saveFavorite(pokemonId) {
+    const favorites = getFavorites();
+    if (!favorites.includes(pokemonId)) {
+        favorites.push(pokemonId);
+        localStorage.setItem('pokemonFavorites', JSON.stringify(favorites));
+    }
+}
+
+/**
+ * Remove um pokémon dos favoritos
+ * @param {number} pokemonId - ID do pokémon
+ */
+function removeFavorite(pokemonId) {
+    const favorites = getFavorites();
+    const index = favorites.indexOf(pokemonId);
+    if (index > -1) {
+        favorites.splice(index, 1);
+        localStorage.setItem('pokemonFavorites', JSON.stringify(favorites));
+    }
+}
+
+/**
+ * Verifica se um pokémon é favorito
+ * @param {number} pokemonId - ID do pokémon
+ * @returns {boolean} True se é favorito
+ */
+function isFavorite(pokemonId) {
+    return getFavorites().includes(pokemonId);
+}
+
+/**
+ * Alterna um pokémon como favorito
+ * @param {number} pokemonId - ID do pokémon
+ */
+function toggleFavorite(pokemonId) {
+    if (isFavorite(pokemonId)) {
+        removeFavorite(pokemonId);
+    } else {
+        saveFavorite(pokemonId);
+    }
+    renderPokemonList();
+}
 
 // ==========================================
 // FUNÇÕES UTILITÁRIAS
@@ -281,9 +343,12 @@ function createPokemonCard(pokemon) {
         .map(type => `<span class="type-badge type-${type}">${type}</span>`)
         .join('');
 
+    const isFav = isFavorite(pokemon.id);
+    const heartIcon = isFav ? '❤️' : '🤍';
+
     col.innerHTML = `
-        <div class="card pokemon-card" onclick="goToDetails(${pokemon.id})">
-            <div class="pokemon-card-header">
+        <div class="card pokemon-card">
+            <div class="pokemon-card-header" onclick="goToDetails(${pokemon.id})" style="cursor: pointer;">
                 <img 
                     src="${pokemon.image}" 
                     alt="${pokemon.name}"
@@ -292,10 +357,17 @@ function createPokemonCard(pokemon) {
                 >
             </div>
             <div class="pokemon-card-body">
-                <h5 class="pokemon-card-title">${capitalize(pokemon.name)}</h5>
-                <p class="pokemon-id">ID: #${pokemon.id.toString().padStart(3, '0')}</p>
-                <div class="pokemon-types">
-                    ${typeBadges}
+                <button class="favorite-btn ${isFav ? 'favorited' : ''}" 
+                        onclick="event.stopPropagation(); toggleFavorite(${pokemon.id})" 
+                        title="${isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+                    ${heartIcon}
+                </button>
+                <div onclick="goToDetails(${pokemon.id})" style="cursor: pointer; flex: 1;">
+                    <h5 class="pokemon-card-title">${capitalize(pokemon.name)}</h5>
+                    <p class="pokemon-id">ID: #${pokemon.id.toString().padStart(3, '0')}</p>
+                    <div class="pokemon-types">
+                        ${typeBadges}
+                    </div>
                 </div>
             </div>
         </div>
@@ -333,7 +405,7 @@ function updatePagination() {
 // ==========================================
 
 /**
- * Filtra pokémons por nome e tipo
+ * Filtra pokémons por nome, tipo e favoritos
  * @param {string} query - Termo de busca
  * @param {string} type - Tipo selecionado
  */
@@ -350,11 +422,19 @@ function filterPokemon(query = appState.searchQuery, type = appState.selectedTyp
         const matchesType = appState.selectedType === '' ||
             pokemon.types.includes(appState.selectedType);
         
-        return matchesSearch && matchesType;
+        const matchesFavorites = !appState.showFavoritesOnly || isFavorite(pokemon.id);
+        
+        return matchesSearch && matchesType && matchesFavorites;
     });
 
     if (appState.filteredList.length === 0) {
-        if (appState.searchQuery && appState.selectedType) {
+        if (appState.showFavoritesOnly) {
+            if (getFavorites().length === 0) {
+                showInfo('Nenhum pokémon nos favoritos ainda. Clique no ❤️ para adicionar!');
+            } else {
+                showInfo('Nenhum favorito encontrado com os filtros selecionados.');
+            }
+        } else if (appState.searchQuery && appState.selectedType) {
             showInfo(`Nenhum pokémon encontrado para "${appState.searchQuery}" do tipo "${capitalize(appState.selectedType)}"`);
         } else if (appState.searchQuery) {
             showInfo(`Nenhum pokémon encontrado para "${appState.searchQuery}"`);
@@ -365,7 +445,9 @@ function filterPokemon(query = appState.searchQuery, type = appState.selectedTyp
         }
     } else {
         let message = `Encontrados ${appState.filteredList.length} resultado(s)`;
-        if (appState.searchQuery && appState.selectedType) {
+        if (appState.showFavoritesOnly) {
+            message = `${appState.filteredList.length} favorito(s)`;
+        } else if (appState.searchQuery && appState.selectedType) {
             message += ` para "${appState.searchQuery}" do tipo "${capitalize(appState.selectedType)}"`;
         } else if (appState.searchQuery) {
             message += ` para "${appState.searchQuery}"`;
@@ -441,11 +523,51 @@ elements.typeFilter.addEventListener('change', (e) => {
     filterPokemon(appState.searchQuery, e.target.value);
 });
 
+// Criar botão de favoritos na navbar
+function createFavoritesButton() {
+    const navbarContainer = document.querySelector('.container-fluid');
+    if (!navbarContainer) return;
+    
+    const favoritesBtn = document.createElement('button');
+    favoritesBtn.className = 'favorites-toggle';
+    favoritesBtn.textContent = `❤️ Meus Favoritos (${getFavorites().length})`;
+    favoritesBtn.onclick = toggleFavoritesFilter;
+    
+    elements.favoritesBtn = favoritesBtn;
+    navbarContainer.appendChild(favoritesBtn);
+    updateFavoritesButtonText();
+}
+
+/**
+ * Alterna a exibição de favoritos
+ */
+function toggleFavoritesFilter() {
+    appState.showFavoritesOnly = !appState.showFavoritesOnly;
+    appState.currentPage = 1;
+    filterPokemon();
+    updateFavoritesButtonText();
+}
+
+/**
+ * Atualiza o texto do botão de favoritos
+ */
+function updateFavoritesButtonText() {
+    if (elements.favoritesBtn) {
+        const favCount = getFavorites().length;
+        const text = appState.showFavoritesOnly ? 
+            `✓ Mostrando Favoritos (${favCount})` : 
+            `❤️ Meus Favoritos (${favCount})`;
+        elements.favoritesBtn.textContent = text;
+        elements.favoritesBtn.style.backgroundColor = appState.showFavoritesOnly ? '#764ba2' : '#667eea';
+    }
+}
+
 // ==========================================
 // INICIALIZAÇÃO
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM carregado. Iniciando carregamento de pokémons...');
+    createFavoritesButton();
     fetchPokemonList();
 });
